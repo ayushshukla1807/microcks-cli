@@ -384,16 +384,23 @@ func (c *microcksClient) CreateTestResult(serviceID string, testEndpoint string,
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		panic(err.Error())
+		return "", fmt.Errorf("failed to read create test response: %w", err)
+	}
+
+	if resp.StatusCode != 201 {
+		return "", fmt.Errorf("create test failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var createTestResp map[string]interface{}
 	if err := json.Unmarshal(body, &createTestResp); err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to parse create test response: %w", err)
 	}
 
-	testID := createTestResp["id"].(string)
-	return testID, err
+	testID, ok := createTestResp["id"].(string)
+	if !ok {
+		return "", fmt.Errorf("create test response missing id field")
+	}
+	return testID, nil
 }
 
 func (c *microcksClient) GetTestResult(testResultID string) (*TestResultSummary, error) {

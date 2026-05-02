@@ -18,6 +18,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 
 	microcks "microcks.io/testcontainers-go"
 
@@ -25,17 +27,23 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 )
 
-// startDryRunContainer starts an ephemeral Microcks uber container, imports the spec file,
-// and returns a ready MicrocksClient, the server address for result URLs, and a teardown func.
-func startDryRunContainer(ctx context.Context, specFile string) (connectors.MicrocksClient, string, func(), error) {
+type dryRunResult struct {
+	client    connectors.MicrocksClient
+	apiURL    string
+	container *microcks.MicrocksContainer
+	teardown  func()
+}
+
+// startDryRunContainer starts an ephemeral Microcks uber container, imports the spec,
+// and returns a ready client, the server address, the container, and a teardown func.
+func startDryRunContainer(ctx context.Context, specFile string) (*dryRunResult, error) {
 	fmt.Println("Starting ephemeral Microcks instance for dry-run...")
 
 	container, err := microcks.RunContainer(ctx,
 		testcontainers.WithImage("quay.io/microcks/microcks-uber:latest"),
-		microcks.WithMainArtifact(specFile),
 	)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("failed to start Microcks container: %w", err)
+		return nil, fmt.Errorf("failed to start Microcks container: %w", err)
 	}
 
 	teardown := func() {
@@ -45,14 +53,49 @@ func startDryRunContainer(ctx context.Context, specFile string) (connectors.Micr
 		}
 	}
 
+	statusCode, err := container.ImportAsMainArtifact(ctx, specFile)
+	if err != nil {
+		teardown()
+		return nil, fmt.Errorf("failed to import spec %s: %w", specFile, err)
+	}
+	if statusCode != 201 {
+		teardown()
+		return nil, fmt.Errorf("import of %s returned status %d", specFile, statusCode)
+	}
+	fmt.Printf("Imported spec %s successfully\n", specFile)
+
 	apiURL, err := container.HttpEndpoint(ctx)
 	if err != nil {
 		teardown()
-		return nil, "", nil, fmt.Errorf("failed to get container endpoint: %w", err)
+		return nil, fmt.Errorf("failed to get container endpoint: %w", err)
 	}
 
 	mc := connectors.NewMicrocksClient(apiURL)
-
 	fmt.Printf("Dry-run Microcks instance ready at %s\n", apiURL)
-	return mc, apiURL, teardown, nil
+
+	return &dryRunResult{
+		client:    mc,
+		apiURL:    apiURL,
+		container: container,
+		teardown:  teardown,
+	}, nil
+}
+
+// restMockEndpoint returns the URL at which Microcks serves the REST mock for a service.
+// serviceRef is in "Name:version" format.
+func (r *dryRunResult) restMockEndpoint(ctx context.Context, serviceRef string) (string, error) {
+	parts := strings.SplitN(serviceRef, ":", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid service ref %q - expected Name:version format", serviceRef)
+	}
+	endpoint, err := r.container.RestMockEndpoint(ctx, parts[0], parts[1])
+	if err != nil {
+		return "", err
+	}
+	// encode any spaces in the service name segment so the URL is valid
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return endpoint, nil
+	}
+	return parsed.String(), nil
 }

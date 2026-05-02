@@ -59,6 +59,7 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 			serviceRef := args[0]
 			testEndpoint := args[1]
 			runnerType := args[2]
+			_ = testEndpoint // may be overridden in dry-run mode
 
 			// Validate presence and values of args.
 			if len(serviceRef) == 0 || strings.HasPrefix(serviceRef, "-") {
@@ -108,14 +109,22 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 					fmt.Println("--dry-run requires --spec-file")
 					os.Exit(1)
 				}
-				var teardown func()
-				var err error
-				mc, serverAddr, teardown, err = startDryRunContainer(context.Background(), specFile)
+				ctx := context.Background()
+				dr, err := startDryRunContainer(ctx, specFile)
 				if err != nil {
 					fmt.Printf("Got error starting dry-run container: %s\n", err)
 					os.Exit(1)
 				}
-				defer teardown()
+				defer dr.teardown()
+				mc = dr.client
+				serverAddr = dr.apiURL
+				// use the Microcks mock endpoint as the test target so the round-trip is self-contained
+				testEndpoint, err = dr.restMockEndpoint(ctx, serviceRef)
+				if err != nil {
+					fmt.Printf("Got error resolving mock endpoint: %s\n", err)
+					os.Exit(1)
+				}
+				fmt.Printf("Testing against mock endpoint: %s\n", testEndpoint)
 			} else if globalClientOpts.ServerAddr != "" && globalClientOpts.ClientId != "" && globalClientOpts.ClientSecret != "" {
 
 				// create client with server address
