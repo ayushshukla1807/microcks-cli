@@ -16,6 +16,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -40,6 +41,8 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 		operationsHeaders  string
 		oAuth2Context      string
 		format             string
+		dryRun             bool
+		specFile           string
 	)
 	var testCmd = &cobra.Command{
 
@@ -100,7 +103,20 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 			var mc connectors.MicrocksClient
 			var serverAddr string
 
-			if globalClientOpts.ServerAddr != "" && globalClientOpts.ClientId != "" && globalClientOpts.ClientSecret != "" {
+			if dryRun {
+				if specFile == "" {
+					fmt.Println("--dry-run requires --spec-file")
+					os.Exit(1)
+				}
+				var teardown func()
+				var err error
+				mc, serverAddr, teardown, err = startDryRunContainer(context.Background(), specFile)
+				if err != nil {
+					fmt.Printf("Got error starting dry-run container: %s\n", err)
+					os.Exit(1)
+				}
+				defer teardown()
+			} else if globalClientOpts.ServerAddr != "" && globalClientOpts.ClientId != "" && globalClientOpts.ClientSecret != "" {
 
 				// create client with server address
 				serverAddr = globalClientOpts.ServerAddr
@@ -210,6 +226,8 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 	testCmd.Flags().StringVar(&operationsHeaders, "operationsHeaders", "", "Override of operations headers as JSON string")
 	testCmd.Flags().StringVar(&oAuth2Context, "oAuth2Context", "", "Spec of an OAuth2 client context as JSON string")
 	testCmd.Flags().StringVar(&format, "format", "text", "Output format: text or github-actions")
+	testCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Run test against an ephemeral local Microcks instance (requires --spec-file)")
+	testCmd.Flags().StringVar(&specFile, "spec-file", "", "Path to API spec file to import for dry-run")
 
 	return testCmd
 }
