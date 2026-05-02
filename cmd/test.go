@@ -39,6 +39,7 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 		filteredOperations string
 		operationsHeaders  string
 		oAuth2Context      string
+		format             string
 	)
 	var testCmd = &cobra.Command{
 
@@ -171,8 +172,10 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 			future := now + waitForMilliseconds + 10000
 
 			var success = false
+			var testResultSummary *connectors.TestResultSummary
 			for nowInMilliseconds() < future {
-				testResultSummary, err := mc.GetTestResult(testResultID)
+				var err error
+				testResultSummary, err = mc.GetTestResult(testResultID)
 				if err != nil {
 					fmt.Printf("Got error when invoking Microcks client check TestResult: %s", err)
 					os.Exit(1)
@@ -189,7 +192,11 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 				time.Sleep(2 * time.Second)
 			}
 
-			fmt.Printf("Full TestResult details are available here: %s/#/tests/%s \n", serverAddr, testResultID)
+			if format == "github-actions" {
+				PrintGitHubActionsResult(testResultSummary, serverAddr, testResultID)
+			} else {
+				fmt.Printf("Full TestResult details are available here: %s/#/tests/%s \n", serverAddr, testResultID)
+			}
 
 			if !success {
 				os.Exit(1)
@@ -202,6 +209,7 @@ func NewTestCommand(globalClientOpts *connectors.ClientOptions) *cobra.Command {
 	testCmd.Flags().StringVar(&filteredOperations, "filteredOperations", "", "List of operations to launch a test for")
 	testCmd.Flags().StringVar(&operationsHeaders, "operationsHeaders", "", "Override of operations headers as JSON string")
 	testCmd.Flags().StringVar(&oAuth2Context, "oAuth2Context", "", "Spec of an OAuth2 client context as JSON string")
+	testCmd.Flags().StringVar(&format, "format", "text", "Output format: text or github-actions")
 
 	return testCmd
 }

@@ -54,17 +54,34 @@ type MicrocksClient interface {
 	DownloadArtifact(artifactURL string, mainArtifact bool, secret string) (string, error)
 }
 
+// TestStepResult represents a single request/response pair within a test case
+type TestStepResult struct {
+	Success     bool   `json:"success"`
+	ElapsedTime int32  `json:"elapsedTime"`
+	RequestName string `json:"requestName"`
+	Message     string `json:"message"`
+}
+
+// TestCaseResult represents the result for a single operation within a test run
+type TestCaseResult struct {
+	Success         bool             `json:"success"`
+	ElapsedTime     int32            `json:"elapsedTime"`
+	OperationName   string           `json:"operationName"`
+	TestStepResults []TestStepResult `json:"testStepResults"`
+}
+
 // TestResultSummary represents a simple view on Microcks TestResult
 type TestResultSummary struct {
-	ID             string `json:"id"`
-	Version        int32  `json:"version"`
-	TestNumber     int32  `json:"testNumber"`
-	TestDate       int64  `json:"testDate"`
-	TestedEndpoint string `json:"testedEndpoint"`
-	ServiceID      string `json:"serviceId"`
-	ElapsedTime    int32  `json:"elapsedTime"`
-	Success        bool   `json:"success"`
-	InProgress     bool   `json:"inProgress"`
+	ID              string           `json:"id"`
+	Version         int32            `json:"version"`
+	TestNumber      int32            `json:"testNumber"`
+	TestDate        int64            `json:"testDate"`
+	TestedEndpoint  string           `json:"testedEndpoint"`
+	ServiceID       string           `json:"serviceId"`
+	ElapsedTime     int32            `json:"elapsedTime"`
+	Success         bool             `json:"success"`
+	InProgress      bool             `json:"inProgress"`
+	TestCaseResults []TestCaseResult `json:"testCaseResults"`
 }
 
 // HeaderDTO represents an operation header passed for Test
