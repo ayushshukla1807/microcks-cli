@@ -16,13 +16,15 @@ export class ServiceItem extends vscode.TreeItem {
 }
 
 export class OperationItem extends vscode.TreeItem {
-  constructor(public readonly operation: MicrocksOperation) {
-    super(
-      operation.name,
-      vscode.TreeItemCollapsibleState.None
-    );
+  constructor(
+    public readonly operation: MicrocksOperation,
+    public readonly serviceName: string,
+    public readonly serviceVersion: string
+  ) {
+    super(operation.name, vscode.TreeItemCollapsibleState.None);
     this.iconPath = new vscode.ThemeIcon("symbol-method");
     this.contextValue = "microcksOperation";
+    this.description = `${serviceName}:${serviceVersion}`;
   }
 }
 
@@ -65,7 +67,14 @@ export class MicrocksServicesProvider
       if (ops.length === 0) {
         return [new MessageItem("no operations found", "info")];
       }
-      return ops.map((op) => new OperationItem(op));
+      return ops.map(
+        (op) =>
+          new OperationItem(
+            op,
+            element.service.name,
+            element.service.version
+          )
+      );
     }
 
     if (element) {

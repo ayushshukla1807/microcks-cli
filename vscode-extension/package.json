@@ -24,6 +24,11 @@
           "type": "string",
           "default": "",
           "description": "Bearer token for authentication. Leave empty if the instance has no auth (e.g. local uber image)."
+        },
+        "microcks.cliPath": {
+          "type": "string",
+          "default": "microcks-cli",
+          "description": "Path to the microcks-cli binary."
         }
       }
     },
@@ -44,6 +49,11 @@
       {
         "command": "microcks.configure",
         "title": "Microcks: Configure Server URL"
+      },
+      {
+        "command": "microcks.test",
+        "title": "Run Microcks Test",
+        "icon": "$(play)"
       }
     ],
     "menus": {
@@ -52,6 +62,17 @@
           "command": "microcks.refresh",
           "when": "view == microcksServices",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "microcks.test",
+          "when": "view == microcksServices && viewItem == microcksOperation",
+          "group": "inline"
+        },
+        {
+          "command": "microcks.test",
+          "when": "view == microcksServices && viewItem == microcksOperation"
         }
       ]
     }

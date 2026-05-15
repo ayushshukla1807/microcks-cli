@@ -1,11 +1,13 @@
 import * as vscode from "vscode";
 import { MicrocksClient } from "./microcksClient";
-import { MicrocksServicesProvider } from "./servicesProvider";
+import { MicrocksServicesProvider, OperationItem } from "./servicesProvider";
+import { CliRunner } from "./cliRunner";
 
 export function activate(context: vscode.ExtensionContext): void {
   const config = vscode.workspace.getConfiguration("microcks");
   const serverUrl = config.get<string>("serverUrl") ?? "";
   const authToken = config.get<string>("authToken") ?? "";
+  const cliPath = config.get<string>("cliPath") ?? "microcks-cli";
 
   if (!serverUrl) {
     vscode.window.showWarningMessage(
@@ -15,6 +17,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const client = new MicrocksClient(serverUrl, authToken);
   const provider = new MicrocksServicesProvider(client);
+  const cliRunner = new CliRunner(cliPath);
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("microcksServices", provider)
@@ -23,6 +26,57 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("microcks.refresh", () => {
       provider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("microcks.test", async (item: OperationItem) => {
+      if (!item) {
+        return;
+      }
+
+      const testEndpoint = await vscode.window.showInputBox({
+        prompt: `Enter test endpoint for ${item.operation.name}`,
+        placeHolder: "http://my-service-under-test.com/api",
+      });
+
+      if (!testEndpoint) {
+        return;
+      }
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Running Microcks test for ${item.operation.name}...`,
+          cancellable: false,
+        },
+        async (progress) => {
+          try {
+            const apiRef = `${item.serviceName}:${item.serviceVersion}`;
+            // For the prototype, we default to HTTP runner.
+            // In a real version, we'd detect the service type or ask the user.
+            const result = await cliRunner.runTest(
+              apiRef,
+              testEndpoint,
+              "HTTP",
+              serverUrl,
+              authToken
+            );
+
+            if (result.success) {
+              vscode.window.showInformationMessage(
+                `Microcks Test Succeeded! Result ID: ${result.id}`
+              );
+            } else {
+              vscode.window.showErrorMessage(
+                `Microcks Test Failed. Result ID: ${result.id}. Check full report at ${serverUrl}/#/tests/${result.id}`
+              );
+            }
+          } catch (e: any) {
+            vscode.window.showErrorMessage(`Microcks CLI Error: ${e.message}`);
+          }
+        }
+      );
     })
   );
 
