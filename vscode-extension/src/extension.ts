@@ -81,6 +81,44 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("microcks.import", async (uri: vscode.Uri) => {
+      let artifactPath = uri?.fsPath;
+
+      if (!artifactPath) {
+        const fileUris = await vscode.window.showOpenDialog({
+          canSelectMany: false,
+          openLabel: "Import to Microcks",
+          filters: {
+            "API Artifacts": ["yaml", "yml", "json", "wsdl", "xml", "proto"]
+          }
+        });
+        if (fileUris && fileUris[0]) {
+          artifactPath = fileUris[0].fsPath;
+        } else {
+          return;
+        }
+      }
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Importing API Artifact to Microcks...`,
+          cancellable: false,
+        },
+        async () => {
+          try {
+            await cliRunner.importArtifact(artifactPath, serverUrl, authToken);
+            vscode.window.showInformationMessage("Microcks: Artifact successfully imported.");
+            provider.refresh();
+          } catch (e: any) {
+            vscode.window.showErrorMessage(`Microcks CLI Error: ${e.message}`);
+          }
+        }
+      );
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("microcks.configure", async () => {
       const url = await vscode.window.showInputBox({
         prompt: "Enter your Microcks server URL",

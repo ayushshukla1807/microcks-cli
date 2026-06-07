@@ -57,4 +57,36 @@ export class CliRunner {
       });
     });
   }
+
+  async importArtifact(
+    artifactPath: string,
+    serverUrl: string,
+    authToken: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const args = ["import", artifactPath, "--server", serverUrl];
+      if (authToken) {
+        args.push("--token", authToken);
+      }
+      
+      const child = cp.spawn(this.binaryPath, args);
+      let stdout = "";
+      let stderr = "";
+
+      child.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      child.on("close", (code) => {
+        if (code !== 0) {
+           return reject(new Error(`CLI exited with code ${code}: ${stderr}`));
+        }
+        resolve();
+      });
+    });
+  }
 }

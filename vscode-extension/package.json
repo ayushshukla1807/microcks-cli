@@ -54,6 +54,11 @@
         "command": "microcks.test",
         "title": "Run Microcks Test",
         "icon": "$(play)"
+      },
+      {
+        "command": "microcks.import",
+        "title": "Microcks: Import API Artifact",
+        "icon": "$(cloud-upload)"
       }
     ],
     "menus": {
@@ -73,6 +78,13 @@
         {
           "command": "microcks.test",
           "when": "view == microcksServices && viewItem == microcksOperation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "microcks.import",
+          "when": "resourceExtname =~ /\\.(yaml|yml|json|wsdl|xml|proto)$/",
+          "group": "microcks"
         }
       ]
     }
